@@ -22,6 +22,7 @@ Workflow: `.github/workflows/publish.yml`
 
 - Publishes to Docker Hub image: `devlead/fedora-dotnet-sdk`
 - Runs on pushes to `main`, version tags (`v*`), and manual dispatch
+- Manual dispatch is build-only unless `publish=true` is provided
 
 Required repository secrets:
 
