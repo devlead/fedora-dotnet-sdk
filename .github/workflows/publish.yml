@@ -6,6 +6,8 @@ on:
       - main
     tags:
       - "v*"
+  schedule:
+    - cron: "0 0 * * 5"
   workflow_dispatch:
     inputs:
       publish:
@@ -28,8 +30,22 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Determine second Friday schedule run
+        id: schedule-window
+        shell: bash
+        run: |
+          is_second_friday=false
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            day_of_month=$(date -u +%d)
+            day_of_month=${day_of_month#0}
+            if [[ "$day_of_month" -ge 8 && "$day_of_month" -le 14 ]]; then
+              is_second_friday=true
+            fi
+          fi
+          echo "is_second_friday=$is_second_friday" >> "$GITHUB_OUTPUT"
+
       - name: Log in to Docker Hub
-        if: ${{ env.PUBLISH_IMAGE == 'true' }}
+        if: ${{ env.PUBLISH_IMAGE == 'true' || steps.schedule-window.outputs.is_second_friday == 'true' }}
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -45,10 +61,11 @@ jobs:
             type=ref,event=tag
 
       - name: Build and push image
+        if: ${{ github.event_name != 'schedule' || steps.schedule-window.outputs.is_second_friday == 'true' }}
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
-          push: ${{ env.PUBLISH_IMAGE == 'true' }}
+          push: ${{ env.PUBLISH_IMAGE == 'true' || steps.schedule-window.outputs.is_second_friday == 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
